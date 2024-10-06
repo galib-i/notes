@@ -1,52 +1,38 @@
 import os
+import cv2
 from google.cloud import vision
 
+PATH = "images\\b.jpg"
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "key.json"
 
 
 def main():
-    detect_document("test.jpg")
+    img_content = pre_process_image(PATH)
+    detect_document(img_content)
 
 
-def detect_document(path):
-    """Detects document features in an image."""
+def pre_process_image(image_path):
+    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)  # Read image directly in grayscale
 
+    max_height = 1024
+    if image.shape[0] > max_height:
+        scale_ratio = max_height / image.shape[0]
+        image = cv2.resize(image, None, fx=scale_ratio, fy=scale_ratio, interpolation=cv2.INTER_LINEAR)
+
+    _, encoded_image = cv2.imencode(".jpg", image)
+    return encoded_image.tobytes()
+
+
+def detect_document(image_content):
     client = vision.ImageAnnotatorClient()
-
-    with open(path, "rb") as image_file:
-        content = image_file.read()
-
-    image = vision.Image(content=content)
-
+    image = vision.Image(content=image_content)
     response = client.document_text_detection(image=image)
 
-    for page in response.full_text_annotation.pages:
-        for block in page.blocks:
-            print(f"\nBlock confidence: {block.confidence}\n")
-
-            for paragraph in block.paragraphs:
-                print("Paragraph confidence: {}".format(paragraph.confidence))
-
-                for word in paragraph.words:
-                    word_text = "".join([symbol.text for symbol in word.symbols])
-                    print(
-                        "Word text: {} (confidence: {})".format(
-                            word_text, word.confidence
-                        )
-                    )
-
-                    for symbol in word.symbols:
-                        print(
-                            "\tSymbol: {} (confidence: {})".format(
-                                symbol.text, symbol.confidence
-                            )
-                        )
-
     if response.error.message:
-        raise Exception(
-            "{}\nFor more info on error messages, check: "
-            "https://cloud.google.com/apis/design/errors".format(response.error.message)
-        )
+        raise Exception(f"{response.error.message}\nFor more info on error messages, check: https://cloud.google.com/apis/design/errors")
+
+    text = response.full_text_annotation.text
+    print(text)
 
 
 main()
