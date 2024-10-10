@@ -1,5 +1,8 @@
 import os
+import re
+
 import cv2
+
 from google.cloud import vision
 
 PATH = "images\\b.jpg"
@@ -39,35 +42,19 @@ def detect_document(image_content):
 
 
 def post_process_text(text_annotations):
-    processed_words = post_process_word(text_annotations)
-    print(processed_words)
     full_text = text_annotations[0].description
-    lines = full_text.split('\n')
+    lines = full_text.split("\n")
 
     processed_lines = []
     for line in lines:
-        if line and line[0].islower() and processed_lines:
-            processed_lines[-1] += f' {line}'
+        line = re.sub(r"^\W+", "", line)  # removes symbols at the start of the line
+        if line and (line[0].islower() or line[0].isdigit()):
+            processed_lines[-1] += f" {line}"
         else:
             processed_lines.append(line)
-    #print(processed_lines)
-    final_text = '\n'.join(processed_lines)
-    #print(final_text)
 
+    final_text = "\n\n".join(processed_lines)
+    print(final_text)
 
-def post_process_word(text_annotations):
-    words_with_coords = []
-
-    for annotation in text_annotations[1:]:  # skip the first annotation as it is the full text
-        word = annotation.description
-        vertices = annotation.bounding_poly.vertices
-        top_left_x = vertices[0].x
-        top_left_y = vertices[0].y
-
-        word = f"{word} ({top_left_x}, {top_left_y})"
-
-        words_with_coords.append(word)
-
-    return words_with_coords
 
 main()
